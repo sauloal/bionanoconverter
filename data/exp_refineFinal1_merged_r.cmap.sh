@@ -21,4 +21,4 @@ SIZES=${FA}.sizes
 
 #./bedToBigBed_static -tab ${BED} ${SIZES} ${BIGBED}
 
-ENVIRONMENT=NONE node bedToBigBed_static.js -tab ${BED} ${SIZES} ${BIGBED}
+node bedToBigBed_static.js -tab ${BED} ${SIZES} ${BIGBED}

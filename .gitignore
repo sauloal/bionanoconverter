@@ -2,3 +2,4 @@
 *.sizes
 *.bb
 *_static*
+node_modules/

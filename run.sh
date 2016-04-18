@@ -1,0 +1,1 @@
+DEBUG=bionanoconverter:* npm start
