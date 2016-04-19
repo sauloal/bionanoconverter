@@ -23,11 +23,12 @@ var bionano_parser = function() {
 
 bionano_parser.prototype.add_file = function(file) {
   console.log('adding file', file);
+
   for ( var ext in this.acceptedExtensions ) {
     console.log('ext', ext);
     if ( file.name.endsWith(ext) ) {
       this.files[this.acceptedExtensions[ext]] = file;
-      break
+      break;
     }
   }
 }
@@ -65,9 +66,7 @@ bionano_parser.prototype.report         = function(self, clbk) {
 }
 
 
-//https://genome.ucsc.edu/FAQ/FAQformat.html#format1
-bionano_parser.prototype.report_r_cmap  = function(self, clbk) {
-  var ldata        = self.data['r_cmap' ];
+bionano_parser.prototype.report_cmap  = function(self, ldata, desc, track_name, clbk) {
   var filename     = ldata['filename'    ]; //
   var header       = ldata['header'      ]; // []
   var data         = ldata['data'        ]; // {}
@@ -84,7 +83,7 @@ bionano_parser.prototype.report_r_cmap  = function(self, clbk) {
   var chrom_names = {};
   var chrom_sizes = {};
   for (var chrid in self.data['key_file']['data'      ]) {
-    var cdata      = self.data['key_file']['data'      ][chrid];
+    var cdata      = self.data['key_file']['data'     ][chrid];
     var chrom_name = cdata[0];
     var chrom_size = cdata[1];
     
@@ -103,13 +102,13 @@ bionano_parser.prototype.report_r_cmap  = function(self, clbk) {
   var indexOfOccurrence   = col_names.indexOf('Occurrence'  );
   
   var outdata_bed         = [
-    '#track name=referenceNicking description="BioNano Genomics Reference Nicking Pattern" useScore=1'
+    '#track name="'+track_name+'" description="'+desc+'" useScore=1 src="'+filename+'"'
   ];
   
   //http://genome.ucsc.edu/goldenPath/help/wiggle.html
   var outdata_wig         = [];
   
-          
+  
   for ( var chromnum in chroms ) {
     var chrom_name = chroms[chromnum];
     var chrom_size = chrom_sizes[chrom_name];
@@ -124,8 +123,8 @@ bionano_parser.prototype.report_r_cmap  = function(self, clbk) {
     //console.log(' cdata    ', cdata       );
     
     
-    outdata_wig.push( "browser position "+chrom_name+":0-"+(chrom_size - 1) );
-    outdata_wig.push( 'track type=wiggle_0 name="reference" description="BioNano Genomics Reference Nicking Pattern" visibility=full autoScale=off viewLimits=0.0:1.0 color=0,255,00 altColor=255,0,0 alwaysZero=on graphType=bar smoothingWindow=off priority=10' );
+    outdata_wig.push( '#browser position '+chrom_name+':0-'+(chrom_size - 1) );
+    outdata_wig.push( '#track type=wiggle_0 name="reference" description="BioNano Genomics Reference Nicking Pattern" visibility=full autoScale=off viewLimits=0.0:1.0 color=0,255,00 altColor=255,0,0 alwaysZero=on graphType=bar smoothingWindow=off priority=10' );
     outdata_wig.push( 'variableStep chrom='+chrom_name+' span='+nick_sites[Object.keys(nick_sites)[0]][1] );
     
     var out_row_bed = [
@@ -195,6 +194,7 @@ bionano_parser.prototype.report_r_cmap  = function(self, clbk) {
     out_row_bed     = out_row_bed.join("\t");
     outdata_bed.push(out_row_bed);
   }
+
   console.log('outdata_bed', outdata_bed);
   clbk(filename + '.bed', outdata_bed.join("\n"));
   
@@ -202,15 +202,25 @@ bionano_parser.prototype.report_r_cmap  = function(self, clbk) {
   clbk(filename + '.wig', outdata_wig.join("\n"));
 }
 
+//https://genome.ucsc.edu/FAQ/FAQformat.html#format1
+bionano_parser.prototype.report_r_cmap  = function(self, clbk) {
+  desc       = "BioNano Genomics - Reference Nicking Pattern";
+  track_name = "referenceNicking";
+  
+  var ldata        = self.data['r_cmap' ];
+
+  self.report_cmap(self, ldata, desc, track_name);
+}
+
 
 
 bionano_parser.prototype.report_q_cmap  = function(self, clbk) {
-  var ldata       = self.data['r_cmap' ];
-  var header      = ldata['header'     ]; // []
-  var data        = ldata['data'       ]; // {}
-  var chr_size    = ldata['chr_size'   ]; // {}
-  var chr_sites   = ldata['chr_sites'  ]; // {}
-  var total_sites = ldata['total_sites']; //  0
+  desc       = "BioNano Genomics - Genomic Mapping Nicking Pattern";
+  track_name = "MappingNicking";
+  
+  var ldata        = self.data['q_cmap' ];
+
+  self.report_cmap(self, ldata, desc, track_name);
 }
 
 bionano_parser.prototype.report_xmap    = function(self, clbk) {
@@ -306,7 +316,7 @@ bionano_parser.prototype.parse_key_file = function(self, clbk) {
         } else { //data
           datanum++;
           if ( datanum == 1 ) { // col names
-            var dfl = "CompntId   CompntName  CompntLength";
+            var dfl = "CompntId\tCompntName\tCompntLength";
             var hdl = line;
             assert(hdl == dfl, "line: '" + hdl + "' ("+hdl.length+") != " + "'"+dfl+"' ("+dfl.length+")");
           
@@ -378,7 +388,7 @@ bionano_parser.prototype.parse_r_cmap   = function(self, clbk) {
         } else { //data
           datanum++;
           if ( datanum == 1 ) { // col names
-            var dfl = "#h CMapId  ContigLength    NumSites    SiteID  LabelChannel    Position    StdDev  Coverage    Occurrence";
+            var dfl = "#h CMapId\tContigLength\tNumSites\tSiteID\tLabelChannel\tPosition\tStdDev\tCoverage\tOccurrence";
             var hdl = ldata['header'][ldata['header'].length-2];
             //console.log(ldata['header']);
             assert(hdl == dfl, "line: '" + hdl + "' ("+hdl.length+") != " + "'"+dfl+"' ("+dfl.length+")");
@@ -457,7 +467,7 @@ bionano_parser.prototype.parse_q_cmap   = function(self, clbk) {
         } else { //data
           datanum++;
           if ( datanum == 1 ) { // col names
-            var dfl = "#h CMapId  ContigLength    NumSites    SiteID  LabelChannel    Position    StdDev  Coverage    Occurrence";
+            var dfl = "#h CMapId\tContigLength\tNumSites\tSiteID\tLabelChannel\tPosition\tStdDev\tCoverage\tOccurrence";
             var hdl = ldata['header'][ldata['header'].length-2];
             assert(hdl == dfl, "line: '" + hdl + "' ("+hdl.length+") != " + "'"+dfl+"' ("+dfl.length+")");
             self.parse_header(ldata);
@@ -532,7 +542,7 @@ bionano_parser.prototype.parse_xmap     = function(self, clbk) {
           datanum++;
           if ( datanum == 1 ) { // col names
             //            0           1           2           3           4         5           6         7           8           9       10      11      12            13      
-            var dfl = "#h XmapEntryID QryContigID RefContigID QryStartPos QryEndPos   RefStartPos RefEndPos   Orientation Confidence  HitEnum QryLen  RefLen  LabelChannel    Alignment";
+            var dfl = "#h XmapEntryID\tQryContigID\tRefContigID\tQryStartPos\tQryEndPos\tRefStartPos\tRefEndPos\tOrientation\tConfidence\tHitEnum\tQryLen\tRefLen\tLabelChannel\tAlignment";
             var hdl = self.data['xmap']['header'][self.data['xmap']['header'].length-2];
             assert(hdl == dfl, "line: '" + hdl + "' ("+hdl.length+") != " + "'"+dfl+"' ("+dfl.length+")");
             self.parse_header(ldata);
