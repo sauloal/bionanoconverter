@@ -9,8 +9,8 @@ var dndSupported = function () {
 };
 
 
-function create_file(filename, text) {
-  var file = new File([text], filename, {type: "text/plain", lastModified: Date()});
+function create_file(filename, ext, text) {
+  var file  = new File([text], filename +'.'+ext, {type: "text/plain", lastModified: Date()});
   
   var fr    = new FileReader();
   
@@ -18,11 +18,21 @@ function create_file(filename, text) {
     console.log(file.name            );
     console.log(file.type            );
     console.log(file.lastModifiedDate);
-     //document.body.innerHTML = evt.target.result + "<br><a href="+URL.createObjectURL(file)+" download=" + file.name + ">Download " + file.name + "</a><br>type: "+file.type+"<br>last modified: "+ file.lastModifiedDate
-     //document.body.appendChild( document.createElement("br") );
-     var span = document.createElement("span");
-     document.body.appendChild( span );
-     span.innerHTML = "<br><a href="+URL.createObjectURL(file)+" download=" + file.name + ">Download " + file.name + "</a>";
+    //document.body.innerHTML = evt.target.result + "<br><a href="+URL.createObjectURL(file)+" download=" + file.name + ">Download " + file.name + "</a><br>type: "+file.type+"<br>last modified: "+ file.lastModifiedDate
+    //document.body.appendChild( document.createElement("br") );
+    
+    var span = document.getElementById(filename);
+
+    if (! span) {
+      var br          = document.createElement("br");
+      span            = document.createElement("span");
+      span.id         = filename;
+      span.innerHTML += filename + " : ";
+      document.body.appendChild( br   );
+      document.body.appendChild( span );
+    }
+    
+    span.innerHTML += " <a href="+URL.createObjectURL(file)+" download=" + file.name + ">" + ext + "</a>";
   }
   
   fr.readAsText(file);
