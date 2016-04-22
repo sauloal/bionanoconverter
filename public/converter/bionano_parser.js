@@ -681,10 +681,13 @@ bionano_parser.prototype.report_xmap    = function(self, clbk) {
   var outdata_wig_g       = [];
   var outdata_wig         = [];
   
+  var outdata_gff_g       = ["##gff-version 3"];
+  var outdata_gff         = [];
+  
   
   for ( var RefContigName in chrom_names ) {
-    var RefContigSize = chrom_sizes[RefContigName];
-    var RefContigID   = chrom_names[RefContigName];
+    var RefContigSize  = chrom_sizes[RefContigName];
+    var RefContigID    = chrom_names[RefContigName];
     
     var donePos        = {};
     var doneRangeStart = [];
@@ -703,6 +706,7 @@ bionano_parser.prototype.report_xmap    = function(self, clbk) {
     var contig_order     = {};
     for ( QryContigID in RefData ) {
       var QryData      = RefData[QryContigID];
+
       for ( var rowid in QryData ) {
         var cols         = QryData[rowid];
         var RefStart     = get_val('RefStartPos' , cols);
@@ -719,6 +723,8 @@ bionano_parser.prototype.report_xmap    = function(self, clbk) {
       }
     }
     
+    
+    
     var sorted_contig_ids = [];
     for (var QryContigID in contig_order) {
       sorted_contig_ids.push([QryContigID, contig_order[QryContigID]])
@@ -727,6 +733,7 @@ bionano_parser.prototype.report_xmap    = function(self, clbk) {
     
     console.log('report_xmap :: sorted_contig_ids', sorted_contig_ids);
 
+    
     
     for ( QryContigNum in sorted_contig_ids ) {
       var QryContigID   = sorted_contig_ids[QryContigNum][0];
@@ -751,10 +758,15 @@ bionano_parser.prototype.report_xmap    = function(self, clbk) {
         []                 // 11 starts
       ];
 
+      var out_row_gff   = [];
+      var out_row_gff_e = [];
 
+      
+      
       
       var lastPos      = -1;
       var lastFeatSize = -1;
+      var lastStrand   = '+';
       var num_valids   =  0;
       for ( var rowid in QryData ) {
         var cols         = QryData[rowid];
@@ -801,6 +813,7 @@ bionano_parser.prototype.report_xmap    = function(self, clbk) {
             23           222          4            5234942.7    4030155.6  19604658.0   20802360.0  -            88.75       3M1D1M   5244212.9  70787664.0  1             (1188,384)(1189,383)(1190,382)(1192,381)
         */
       
+        var XmapEntryID  = get_val('XmapEntryID' , cols);
         var RefId        = get_val('RefContigID' , cols);
         var RefStart     = get_val('RefStartPos' , cols);
         var RefEnd       = get_val('RefEndPos'   , cols);
@@ -813,8 +826,10 @@ bionano_parser.prototype.report_xmap    = function(self, clbk) {
         var Orientation  = get_val('Orientation' , cols);
         var Confidence   = get_val('Confidence'  , cols);
         var Alignment    = get_val('Alignment'   , cols);
+        
         var featSize     = nick_sites[LabelChannel][1];
         lastFeatSize     = featSize;
+        lastStrand       = Orientation;
 
         
         if (RefStart > RefEnd) {
@@ -914,6 +929,25 @@ bionano_parser.prototype.report_xmap    = function(self, clbk) {
             out_row_bed[10].push(featSize);
             out_row_bed[11].push(refPos  );
             
+            var uid     = QryContigID+'.'+(rowid+1)+'.'+p;
+            
+            var row_gff = [
+              RefContigName                  , // seqid
+              '.'                            , // source
+              'CDS'                         , // type
+              refPos                         , // start
+              refPos + featSize              , // end
+              Confidence                     , // score
+              Orientation                    , // strand
+              '.'                            , // phase
+              'ID='         +uid        +';'+  // attributes
+              'Name='       +uid        +';'+
+              'Parent='     +QryContigID+'.g;'+
+              'qryContigID='+QryContigID+';'+
+              'xMapEntryID='+XmapEntryID
+            ];
+            out_row_gff_e.push(row_gff.join("\t"));
+            
             
             
             if (refPos <= RefStartW) {
@@ -924,6 +958,7 @@ bionano_parser.prototype.report_xmap    = function(self, clbk) {
               continue;
             }
 
+            
             
             while (refPos in donePos) {
               refPos += 1;
@@ -936,13 +971,14 @@ bionano_parser.prototype.report_xmap    = function(self, clbk) {
             }
 
 
+
             if (refPos in donePos) {
               continue;
             }
 
             donePos[refPos] = 1;
             
-            lastPos = refPos;
+            lastPos         = refPos;
             
             outdata_wig.push( refPos + " 1" );
           } else {
@@ -968,6 +1004,32 @@ bionano_parser.prototype.report_xmap    = function(self, clbk) {
       out_row_bed[ 2] += lastFeatSize;
       out_row_bed[ 7] += lastFeatSize;
       
+      var row_gff_g    = [
+        RefContigName              , // seqid
+        '.'                        , // source
+        'gene'                     , // type
+        out_row_bed[1]             , // start
+        out_row_bed[2]             , // end
+        '.'                        , // score
+        '.'                        , // strand
+        '.'                        , // phase
+        'ID='    +QryContigID+';' +  // attributes
+        'Name='  +QryContigID
+      ];
+      
+      var row_gff_m    = [
+        RefContigName              , // seqid
+        '.'                        , // source
+        'mRNA'                     , // type
+        out_row_bed[1]             , // start
+        out_row_bed[2]             , // end
+        '.'                        , // score
+        '.'                        , // strand
+        '.'                        , // phase
+        'ID='    +QryContigID+'.g;'+  // attributes
+        'Name='  +QryContigID
+      ];
+      
       for (var rp = 0; rp < out_row_bed[11].length; rp++) {
         out_row_bed[11][rp] -= out_row_bed[1];
       }
@@ -977,25 +1039,40 @@ bionano_parser.prototype.report_xmap    = function(self, clbk) {
       out_row_bed[11] = out_row_bed[11].join(',');
       out_row_bed     = out_row_bed.join("\t");
       
+      
+      
+      
+
+      
       outdata_bed.push(out_row_bed);
+      
+      outdata_gff.push(row_gff_g.join("\t"));
+      outdata_gff.push(row_gff_m.join("\t"));
+      outdata_gff.push.apply(outdata_gff, out_row_gff_e);
     } // QryContigID
 
   
     //console.log('report_xmap :: outdata_wig', outdata_wig);
-    //clbk(filename, RefContigName+'.wig', outdata_wig.join("\n"));
+    //clbk(filename, RefContigName+'.wig' , outdata_wig.join("\n"));
     outdata_wig_g.push.apply(outdata_wig_g, outdata_wig);
-    outdata_wig = [];
+    outdata_wig   = [];
     
 
-    //clbk(filename, RefContigName+'.bed', outdata_bed.join("\n"));
+    //clbk(filename, RefContigName+'.bed' , outdata_bed.join("\n"));
     outdata_bed_g.push.apply(outdata_bed_g, outdata_bed);
-    outdata_bed = [];
+    outdata_bed   = [];
+    
+    
+    //clbk(filename, RefContigName+'.gff3', "##gff-version 3\n"+outdata_gff.join("\n"));
+    outdata_gff_g.push.apply(outdata_gff_g, outdata_gff);
+    outdata_gff   = [];
   } // RefContigID
 
   
-  clbk(filename, 'wig', outdata_wig_g.join("\n"));
   //console.log('report_xmap :: outdata_bed', outdata_bed);
-  clbk(filename, 'bed', outdata_bed_g.join("\n"));
+  clbk(filename, 'wig' , outdata_wig_g.join("\n"));
+  clbk(filename, 'bed' , outdata_bed_g.join("\n"));
+  clbk(filename, 'gff3', outdata_gff_g.join("\n"));
 }
 
 
